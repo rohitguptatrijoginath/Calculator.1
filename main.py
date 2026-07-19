@@ -27,22 +27,30 @@ operators = {
 }
 
 
+# ✅ SAFE EVAL (Python 3.10+ compatible)
 def safe_eval(expr):
     def _eval(node):
-        if isinstance(node, ast.Num):
+        if isinstance(node, ast.Constant):  # ✅ Python 3.10 fix
+            return node.value
+        elif isinstance(node, ast.Num):     # ✅ backward support
             return node.n
         elif isinstance(node, ast.BinOp):
-            return operators[type(node.op)](_eval(node.left), _eval(node.right))
+            return operators[type(node.op)](
+                _eval(node.left),
+                _eval(node.right)
+            )
         elif isinstance(node, ast.UnaryOp):
-            return operators[type(node.op)](_eval(node.operand))
+            return operators[type(node.op)](
+                _eval(node.operand)
+            )
         else:
-            raise Exception("Invalid")
+            raise Exception("Invalid Expression")
 
     node = ast.parse(expr, mode='eval').body
     return _eval(node)
 
 
-# ✅ Safe Animated Rounded Button
+# ✅ Rounded Animated Button (Safe)
 class RoundedButton(Button):
     def __init__(self, bg_color="#1C1C1C", **kwargs):
         super().__init__(**kwargs)
@@ -60,7 +68,6 @@ class RoundedButton(Button):
         self.rect.pos = self.pos
         self.rect.size = self.size
 
-    # ✅ Safe animation (no scale crash)
     def animate_press(self, *args):
         anim = Animation(opacity=0.7, duration=0.05) + \
                Animation(opacity=1, duration=0.05)
@@ -75,9 +82,11 @@ class CalculatorApp(App):
     def build(self):
         Window.clearcolor = (0, 0, 0, 1)
 
-        self.main = BoxLayout(orientation='vertical',
-                              padding=dp(10),
-                              spacing=dp(10))
+        self.main = BoxLayout(
+            orientation='vertical',
+            padding=dp(10),
+            spacing=dp(10)
+        )
 
         # ✅ History
         self.history_label = Label(
@@ -87,7 +96,9 @@ class CalculatorApp(App):
             valign="top",
             color=(0.7, 0.7, 0.7, 1)
         )
-        self.history_label.bind(texture_size=self.history_label.setter('size'))
+        self.history_label.bind(
+            texture_size=self.history_label.setter('size')
+        )
 
         scroll = ScrollView(size_hint=(1, 0.25))
         scroll.add_widget(self.history_label)
@@ -101,13 +112,15 @@ class CalculatorApp(App):
             size_hint=(1, 0.2),
             color=(1, 1, 1, 1)
         )
-        self.display.bind(size=lambda i, v: setattr(i, 'text_size', v))
+        self.display.bind(
+            size=lambda i, v: setattr(i, 'text_size', v)
+        )
         self.display.bind(on_touch_down=self.check_double_tap)
 
         self.main.add_widget(scroll)
         self.main.add_widget(self.display)
 
-        # ✅ Button Grid
+        # ✅ Grid
         self.grid = GridLayout(cols=4, spacing=dp(10))
         self.main.add_widget(self.grid)
 
@@ -160,7 +173,7 @@ class CalculatorApp(App):
             Window.clearcolor = (1, 1, 1, 1) if not self.dark_mode else (0, 0, 0, 1)
             self.display.color = (0, 0, 0, 1) if not self.dark_mode else (1, 1, 1, 1)
 
-    # ✅ Long press clear history
+    # ✅ Long press C = clear history
     def start_long_clear(self, instance):
         self.long_press = Clock.schedule_once(self.clear_history, 1)
 
