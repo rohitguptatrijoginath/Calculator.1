@@ -9,7 +9,6 @@ from kivy.core.window import Window
 from kivy.metrics import dp
 from kivy.animation import Animation
 from kivy.utils import get_color_from_hex
-from kivy.core.audio import SoundLoader
 from kivy.clock import Clock
 
 import ast
@@ -43,15 +42,15 @@ def safe_eval(expr):
     return _eval(node)
 
 
+# ✅ Safe Animated Rounded Button
 class RoundedButton(Button):
     def __init__(self, bg_color="#1C1C1C", **kwargs):
         super().__init__(**kwargs)
         self.background_normal = ''
         self.background_color = (0, 0, 0, 0)
-        self.bg_color = get_color_from_hex(bg_color)
 
         with self.canvas.before:
-            Color(*self.bg_color)
+            Color(*get_color_from_hex(bg_color))
             self.rect = RoundedRectangle(radius=[dp(30)])
 
         self.bind(pos=self.update_rect, size=self.update_rect)
@@ -61,8 +60,10 @@ class RoundedButton(Button):
         self.rect.pos = self.pos
         self.rect.size = self.size
 
+    # ✅ Safe animation (no scale crash)
     def animate_press(self, *args):
-        anim = Animation(scale=0.95, duration=0.05) + Animation(scale=1, duration=0.05)
+        anim = Animation(opacity=0.7, duration=0.05) + \
+               Animation(opacity=1, duration=0.05)
         anim.start(self)
 
 
@@ -74,10 +75,11 @@ class CalculatorApp(App):
     def build(self):
         Window.clearcolor = (0, 0, 0, 1)
 
-        self.sound = SoundLoader.load(None)
+        self.main = BoxLayout(orientation='vertical',
+                              padding=dp(10),
+                              spacing=dp(10))
 
-        self.main = BoxLayout(orientation='vertical', padding=dp(10), spacing=dp(10))
-
+        # ✅ History
         self.history_label = Label(
             text="",
             size_hint_y=None,
@@ -90,6 +92,7 @@ class CalculatorApp(App):
         scroll = ScrollView(size_hint=(1, 0.25))
         scroll.add_widget(self.history_label)
 
+        # ✅ Display
         self.display = Label(
             text="0",
             font_size='45sp',
@@ -104,6 +107,7 @@ class CalculatorApp(App):
         self.main.add_widget(scroll)
         self.main.add_widget(self.display)
 
+        # ✅ Button Grid
         self.grid = GridLayout(cols=4, spacing=dp(10))
         self.main.add_widget(self.grid)
 
@@ -144,20 +148,19 @@ class CalculatorApp(App):
             if text == "C":
                 btn.bind(on_release=self.clear_short)
                 btn.bind(on_press=self.start_long_clear)
-
             else:
                 btn.bind(on_press=self.on_press)
 
             self.grid.add_widget(btn)
 
-    # ✅ Double tap theme
+    # ✅ Double tap = theme toggle
     def check_double_tap(self, instance, touch):
         if touch.is_double_tap:
             self.dark_mode = not self.dark_mode
-            Window.clearcolor = (1,1,1,1) if not self.dark_mode else (0,0,0,1)
-            self.display.color = (0,0,0,1) if not self.dark_mode else (1,1,1,1)
+            Window.clearcolor = (1, 1, 1, 1) if not self.dark_mode else (0, 0, 0, 1)
+            self.display.color = (0, 0, 0, 1) if not self.dark_mode else (1, 1, 1, 1)
 
-    # ✅ Long press clear
+    # ✅ Long press clear history
     def start_long_clear(self, instance):
         self.long_press = Clock.schedule_once(self.clear_history, 1)
 
@@ -169,6 +172,7 @@ class CalculatorApp(App):
     def clear_history(self, dt):
         self.history_label.text = ""
 
+    # ✅ Auto font resize
     def adjust_font(self):
         length = len(self.display.text)
         if length > 15:
