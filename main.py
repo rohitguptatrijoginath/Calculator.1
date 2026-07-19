@@ -10,22 +10,22 @@ from kivy.metrics import dp
 from kivy.animation import Animation
 from kivy.utils import get_color_from_hex
 from kivy.clock import Clock
-
 import math
 
 
-# ✅ Simple Safe Evaluation (Controlled eval)
+# ✅ Safe Expression Evaluation
 def calculate_expression(expr):
     expr = expr.replace('×', '*').replace('÷', '/').replace('^', '**')
 
-    allowed_chars = "0123456789+-*/.() "
-    for char in expr:
-        if char not in allowed_chars:
+    allowed = "0123456789+-*/.() "
+    for c in expr:
+        if c not in allowed:
             raise Exception("Invalid")
 
     return eval(expr)
 
 
+# ✅ Rounded Button
 class RoundedButton(Button):
     def __init__(self, bg_color="#1C1C1C", **kwargs):
         super().__init__(**kwargs)
@@ -34,7 +34,7 @@ class RoundedButton(Button):
 
         with self.canvas.before:
             Color(*get_color_from_hex(bg_color))
-            self.rect = RoundedRectangle(radius=[dp(30)])
+            self.rect = RoundedRectangle(radius=[dp(25)])
 
         self.bind(pos=self.update_rect, size=self.update_rect)
         self.bind(on_press=self.animate_press)
@@ -44,9 +44,8 @@ class RoundedButton(Button):
         self.rect.size = self.size
 
     def animate_press(self, *args):
-        anim = Animation(opacity=0.7, duration=0.05) + \
-               Animation(opacity=1, duration=0.05)
-        anim.start(self)
+        Animation(opacity=0.7, duration=0.05).start(self)
+        Animation(opacity=1, duration=0.1).start(self)
 
 
 class CalculatorApp(App):
@@ -57,20 +56,24 @@ class CalculatorApp(App):
     def build(self):
         Window.clearcolor = (0, 0, 0, 1)
 
-        self.main = BoxLayout(orientation='vertical', padding=dp(10), spacing=dp(10))
+        self.main = BoxLayout(orientation='vertical',
+                              padding=dp(10),
+                              spacing=dp(10))
 
-        self.history_label = Label(
+        # ✅ History
+        self.history = Label(
             text="",
             size_hint_y=None,
             halign="right",
             valign="top",
-            color=(0.7, 0.7, 0.7, 1)
+            color=(0.6, 0.6, 0.6, 1)
         )
-        self.history_label.bind(texture_size=self.history_label.setter('size'))
+        self.history.bind(texture_size=self.history.setter('size'))
 
         scroll = ScrollView(size_hint=(1, 0.25))
-        scroll.add_widget(self.history_label)
+        scroll.add_widget(self.history)
 
+        # ✅ Display
         self.display = Label(
             text="0",
             font_size='45sp',
@@ -80,11 +83,12 @@ class CalculatorApp(App):
             color=(1, 1, 1, 1)
         )
         self.display.bind(size=lambda i, v: setattr(i, 'text_size', v))
-        self.display.bind(on_touch_down=self.check_double_tap)
+        self.display.bind(on_touch_down=self.double_tap_theme)
 
         self.main.add_widget(scroll)
         self.main.add_widget(self.display)
 
+        # ✅ Proper 4 Column Grid
         self.grid = GridLayout(cols=4, spacing=dp(10))
         self.main.add_widget(self.grid)
 
@@ -96,19 +100,15 @@ class CalculatorApp(App):
 
         buttons = [
             'MC', 'MR', 'M+', 'M-',
-            'C', '±', '÷', '×',
-            '7', '8', '9', '-',
-            '4', '5', '6', '+',
-            '1', '2', '3', '^',
+            'C', '±', '🌙', '÷',
+            '7', '8', '9', '×',
+            '4', '5', '6', '-',
+            '1', '2', '3', '+',
             '0', '.', '√', '=',
-            'x²', '[x]', '00', ''
+            'x²', '^', '[x]', '00'
         ]
 
         for text in buttons:
-
-            if text == '':
-                self.grid.add_widget(Label())
-                continue
 
             if text in ['÷', '×', '-', '+', '=', '^']:
                 color = '#9C27B0'
@@ -116,6 +116,8 @@ class CalculatorApp(App):
                 color = '#424242'
             elif text in ['MC', 'MR', 'M+', 'M-']:
                 color = '#00695C'
+            elif text == '🌙':
+                color = '#455A64'
             else:
                 color = '#1C1C1C'
 
@@ -126,30 +128,24 @@ class CalculatorApp(App):
                 color=(1, 1, 1, 1)
             )
 
-            if text == "C":
-                btn.bind(on_release=self.clear_short)
-                btn.bind(on_press=self.start_long_clear)
-            else:
-                btn.bind(on_press=self.on_press)
-
+            btn.bind(on_press=self.on_press)
             self.grid.add_widget(btn)
 
-    def check_double_tap(self, instance, touch):
+    # ✅ Theme Toggle (Button)
+    def toggle_theme(self):
+        self.dark_mode = not self.dark_mode
+
+        if self.dark_mode:
+            Window.clearcolor = (0, 0, 0, 1)
+            self.display.color = (1, 1, 1, 1)
+        else:
+            Window.clearcolor = (1, 1, 1, 1)
+            self.display.color = (0, 0, 0, 1)
+
+    # ✅ Double Tap Theme
+    def double_tap_theme(self, instance, touch):
         if touch.is_double_tap:
-            self.dark_mode = not self.dark_mode
-            Window.clearcolor = (1, 1, 1, 1) if not self.dark_mode else (0, 0, 0, 1)
-            self.display.color = (0, 0, 0, 1) if not self.dark_mode else (1, 1, 1, 1)
-
-    def start_long_clear(self, instance):
-        self.long_press = Clock.schedule_once(self.clear_history, 1)
-
-    def clear_short(self, instance):
-        if hasattr(self, 'long_press'):
-            self.long_press.cancel()
-        self.display.text = "0"
-
-    def clear_history(self, dt):
-        self.history_label.text = ""
+            self.toggle_theme()
 
     def adjust_font(self):
         length = len(self.display.text)
@@ -164,28 +160,35 @@ class CalculatorApp(App):
         text = instance.text
         current = self.display.text
 
-        if text == "[x]":
+        if text == '🌙':
+            self.toggle_theme()
+
+        elif text == 'C':
+            self.display.text = "0"
+            self.history.text = ""
+
+        elif text == '[x]':
             self.display.text = current[:-1] if len(current) > 1 else "0"
 
-        elif text == "±":
+        elif text == '±':
             self.display.text = current[1:] if current.startswith("-") else "-" + current
 
-        elif text == "√":
+        elif text == '√':
             try:
                 self.display.text = str(round(math.sqrt(float(current)), 10))
             except:
                 self.display.text = "Error"
 
-        elif text == "x²":
+        elif text == 'x²':
             try:
                 self.display.text = str(round(float(current) ** 2, 10))
             except:
                 self.display.text = "Error"
 
-        elif text == "=":
+        elif text == '=':
             try:
                 result = calculate_expression(current)
-                self.history_label.text += current + " = " + str(result) + "\n"
+                self.history.text += current + " = " + str(result) + "\n"
                 self.display.text = str(result)
             except:
                 self.display.text = "Error"
