@@ -11,46 +11,21 @@ from kivy.animation import Animation
 from kivy.utils import get_color_from_hex
 from kivy.clock import Clock
 
-import ast
-import operator
 import math
 
 
-# ✅ SAFE OPERATORS
-operators = {
-    ast.Add: operator.add,
-    ast.Sub: operator.sub,
-    ast.Mult: operator.mul,
-    ast.Div: operator.truediv,
-    ast.Pow: operator.pow,
-    ast.USub: operator.neg
-}
+# ✅ Simple Safe Evaluation (Controlled eval)
+def calculate_expression(expr):
+    expr = expr.replace('×', '*').replace('÷', '/').replace('^', '**')
+
+    allowed_chars = "0123456789+-*/.() "
+    for char in expr:
+        if char not in allowed_chars:
+            raise Exception("Invalid")
+
+    return eval(expr)
 
 
-# ✅ SAFE EVAL (Python 3.10+ compatible)
-def safe_eval(expr):
-    def _eval(node):
-        if isinstance(node, ast.Constant):  # ✅ Python 3.10 fix
-            return node.value
-        elif isinstance(node, ast.Num):     # ✅ backward support
-            return node.n
-        elif isinstance(node, ast.BinOp):
-            return operators[type(node.op)](
-                _eval(node.left),
-                _eval(node.right)
-            )
-        elif isinstance(node, ast.UnaryOp):
-            return operators[type(node.op)](
-                _eval(node.operand)
-            )
-        else:
-            raise Exception("Invalid Expression")
-
-    node = ast.parse(expr, mode='eval').body
-    return _eval(node)
-
-
-# ✅ Rounded Animated Button (Safe)
 class RoundedButton(Button):
     def __init__(self, bg_color="#1C1C1C", **kwargs):
         super().__init__(**kwargs)
@@ -82,13 +57,8 @@ class CalculatorApp(App):
     def build(self):
         Window.clearcolor = (0, 0, 0, 1)
 
-        self.main = BoxLayout(
-            orientation='vertical',
-            padding=dp(10),
-            spacing=dp(10)
-        )
+        self.main = BoxLayout(orientation='vertical', padding=dp(10), spacing=dp(10))
 
-        # ✅ History
         self.history_label = Label(
             text="",
             size_hint_y=None,
@@ -96,14 +66,11 @@ class CalculatorApp(App):
             valign="top",
             color=(0.7, 0.7, 0.7, 1)
         )
-        self.history_label.bind(
-            texture_size=self.history_label.setter('size')
-        )
+        self.history_label.bind(texture_size=self.history_label.setter('size'))
 
         scroll = ScrollView(size_hint=(1, 0.25))
         scroll.add_widget(self.history_label)
 
-        # ✅ Display
         self.display = Label(
             text="0",
             font_size='45sp',
@@ -112,15 +79,12 @@ class CalculatorApp(App):
             size_hint=(1, 0.2),
             color=(1, 1, 1, 1)
         )
-        self.display.bind(
-            size=lambda i, v: setattr(i, 'text_size', v)
-        )
+        self.display.bind(size=lambda i, v: setattr(i, 'text_size', v))
         self.display.bind(on_touch_down=self.check_double_tap)
 
         self.main.add_widget(scroll)
         self.main.add_widget(self.display)
 
-        # ✅ Grid
         self.grid = GridLayout(cols=4, spacing=dp(10))
         self.main.add_widget(self.grid)
 
@@ -132,19 +96,23 @@ class CalculatorApp(App):
 
         buttons = [
             'MC', 'MR', 'M+', 'M-',
-            'C', '±', '%', '÷',
-            '7', '8', '9', '×',
-            '4', '5', '6', '-',
-            '1', '2', '3', '+',
+            'C', '±', '÷', '×',
+            '7', '8', '9', '-',
+            '4', '5', '6', '+',
+            '1', '2', '3', '^',
             '0', '.', '√', '=',
-            'x²', '^', '[x]', '00'
+            'x²', '[x]', '00', ''
         ]
 
         for text in buttons:
 
+            if text == '':
+                self.grid.add_widget(Label())
+                continue
+
             if text in ['÷', '×', '-', '+', '=', '^']:
                 color = '#9C27B0'
-            elif text in ['C', '±', '√', 'x²', '[x]', '%']:
+            elif text in ['C', '±', '√', 'x²', '[x]']:
                 color = '#424242'
             elif text in ['MC', 'MR', 'M+', 'M-']:
                 color = '#00695C'
@@ -166,14 +134,12 @@ class CalculatorApp(App):
 
             self.grid.add_widget(btn)
 
-    # ✅ Double tap = theme toggle
     def check_double_tap(self, instance, touch):
         if touch.is_double_tap:
             self.dark_mode = not self.dark_mode
             Window.clearcolor = (1, 1, 1, 1) if not self.dark_mode else (0, 0, 0, 1)
             self.display.color = (0, 0, 0, 1) if not self.dark_mode else (1, 1, 1, 1)
 
-    # ✅ Long press C = clear history
     def start_long_clear(self, instance):
         self.long_press = Clock.schedule_once(self.clear_history, 1)
 
@@ -185,7 +151,6 @@ class CalculatorApp(App):
     def clear_history(self, dt):
         self.history_label.text = ""
 
-    # ✅ Auto font resize
     def adjust_font(self):
         length = len(self.display.text)
         if length > 15:
@@ -219,12 +184,17 @@ class CalculatorApp(App):
 
         elif text == "=":
             try:
-                expr = current.replace('×', '*').replace('÷', '/').replace('^', '**')
-                result = safe_eval(expr)
+                result = calculate_expression(current)
                 self.history_label.text += current + " = " + str(result) + "\n"
-                self.display.text = str(round(result, 10))
+                self.display.text = str(result)
             except:
                 self.display.text = "Error"
+
+        elif text in ['+', '-', '×', '÷', '^']:
+            if current[-1] in ['+', '-', '×', '÷', '^']:
+                self.display.text = current[:-1] + text
+            else:
+                self.display.text += text
 
         elif text in ['MC', 'MR', 'M+', 'M-']:
             try:
@@ -240,12 +210,6 @@ class CalculatorApp(App):
                 self.memory += value
             elif text == "M-":
                 self.memory -= value
-
-        elif text in ['+', '-', '×', '÷', '^', '%']:
-            if current[-1] in ['+', '-', '×', '÷', '^', '%']:
-                self.display.text = current[:-1] + text
-            else:
-                self.display.text += text
 
         else:
             if current == "0":
